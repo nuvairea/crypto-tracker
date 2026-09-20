@@ -1,36 +1,11 @@
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { IncomingMessage, ServerResponse } from 'http';
+import type { CoinGeckoMarketData, ServerMessage, UpdateMessage, ConnectingMessage } from './types.js';
 
 const PORT = process.env.PORT || 3000;
 const POLL_INTERVAL_MS = 30_000;
 const COIN_IDS = ['bitcoin', 'ethereum', 'solana'];
-
-type CoinGeckoMarketData = {
-  id: string;
-  symbol: string;
-  name: string;
-  current_price: number;
-  market_cap: number;
-  total_volume: number;
-  price_change_percentage_24h: number | null;
-  sparkline_in_7d?: {
-    price: number[];
-  };
-};
-
-type ConnectingMessage = { type: 'connecting' };
-type UpdateMessage = {
-  type: 'update';
-  coins: CoinGeckoMarketData[];
-  stale: boolean;
-};
-type ErrorMessage = {
-  type: 'error';
-  message: string;
-};
-
-type ServerMessage = ConnectingMessage | UpdateMessage | ErrorMessage;
 
 const COINGECKO_URL =
   `https://api.coingecko.com/api/v3/coins/markets` +

@@ -1,8 +1,9 @@
 {
+  "include": ["src/**/*.ts"],
   "compilerOptions": {
     // File Layout
-    "rootDir": ".",
-    "outDir": "./dist",
+   "rootDir": "./src",
+   "outDir": "./dist",
 
     // Environment Settings
     "module": "nodenext",

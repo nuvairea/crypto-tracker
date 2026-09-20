@@ -5,10 +5,11 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+  "dev": "tsx src/server.ts",
+  "build": "tsc",
+  "start": "node dist/server.js"
   },
   "dependencies": {
     "ws": "^8.21.3"

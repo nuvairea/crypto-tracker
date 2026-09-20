@@ -1,0 +1,17 @@
+{
+  "name": "crypto-tracker",
+  "version": "1.0.0",
+  "description": "A realtime crypto tracker.",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {}
+}

@@ -5,6 +5,7 @@ import type { CoinGeckoMarketData, ServerMessage, UpdateMessage, ConnectingMessa
 
 const PORT = process.env.PORT || 3000;
 const POLL_INTERVAL_MS = 30_000;
+const FETCH_TIMEOUT_MS = 10_000;
 const COIN_IDS = ['bitcoin', 'ethereum', 'solana'];
 
 const COINGECKO_URL =
@@ -15,9 +16,17 @@ const COINGECKO_URL =
 let latestCoins: CoinGeckoMarketData[] | null = null;
 let lastSuccessAt: number | null = null;
 
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let inFlight = false;
+
 async function fetchMarketData() {
+  if (inFlight) return;
+  inFlight = true;
+
   try {
-    const res = await fetch(COINGECKO_URL);
+    const res = await fetch(COINGECKO_URL, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) throw new Error(`CoinGecko responded ${res.status}`);
 
     const data: unknown = await res.json();
@@ -31,7 +40,7 @@ async function fetchMarketData() {
     lastSuccessAt = Date.now();
 
     broadcast({ type: 'update', coins: latestCoins, stale: false });
-  } catch (error : unknown) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown CoinGecko error';
 
     console.error('[coingecko] Failed to fetch market data:', message);
@@ -41,6 +50,8 @@ async function fetchMarketData() {
     } else {
       broadcast({ type: 'error', message: 'Failed to fetch market data from CoinGecko' });
     }
+  } finally {
+    inFlight = false;
   }
 }
 
@@ -61,7 +72,33 @@ function broadcast(payload: ServerMessage) {
   });
 }
 
+function startPolling() {
+  if (pollTimer) return;
+
+  const fresh = lastSuccessAt !== null && Date.now() - lastSuccessAt < POLL_INTERVAL_MS;
+  if (!fresh) void fetchMarketData();
+
+  pollTimer = setInterval(fetchMarketData, POLL_INTERVAL_MS);
+  console.log('[poll] started');
+}
+
+function stopPolling() {
+  if (!pollTimer) return;
+
+  clearInterval(pollTimer);
+  pollTimer = null;
+  console.log('[poll] stopped (no clients)');
+}
+
 wss.on('connection', (ws: WebSocket) => {
+  ws.on('error', (err) => {
+    console.error('[ws] client error:', err.message);
+  });
+
+  ws.on('close', () => {
+    if (wss.clients.size === 0) stopPolling();
+  });
+
   if (latestCoins) {
     const stale = lastSuccessAt === null ? true : Date.now() - lastSuccessAt > POLL_INTERVAL_MS * 2;
     ws.send(
@@ -74,10 +111,9 @@ wss.on('connection', (ws: WebSocket) => {
   } else {
     ws.send(JSON.stringify({ type: 'connecting' } satisfies ConnectingMessage));
   }
-});
 
-fetchMarketData();
-setInterval(fetchMarketData, POLL_INTERVAL_MS);
+  startPolling();
+});
 
 server.listen(PORT, () => {
   console.log(`WebSocket server running at http://localhost:${PORT}`);
